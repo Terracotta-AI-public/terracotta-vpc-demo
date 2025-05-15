@@ -2,14 +2,14 @@ provider "aws" {
   region = local.region
 }
 
-data "aws_availability_zones" "available" {}
-
 locals {
   name   = "ex-${basename(path.cwd)}"
   region = "eu-west-1"
 
   vpc_cidr = "10.0.0.0/16"
-  azs      = slice(data.aws_availability_zones.available.names, 0, 3)
+
+  # Static AZs for demo (no AWS lookup needed)
+  azs = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
 
   tags = {
     Example    = local.name
@@ -29,15 +29,26 @@ module "vpc" {
   name = local.name
   cidr = local.vpc_cidr
 
-  azs                 = local.azs
-  private_subnets     = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k)]
+  azs = local.azs
+
+  private_subnets = concat(
+    [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k)],
+    ["10.0.100.0/24"]
+  )
+
   public_subnets      = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 4)]
   database_subnets    = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 8)]
   elasticache_subnets = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 12)]
   redshift_subnets    = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 16)]
   intra_subnets       = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 20)]
 
-  private_subnet_names = ["Private Subnet One", "Private Subnet Two"]
+  private_subnet_names = [
+    "Private Subnet One",
+    "Private Subnet Two",
+    "Private Subnet Three",
+    "Analytics Subnet"
+  ]
+
   # public_subnet_names omitted to show default name generation for all three subnets
   database_subnet_names    = ["DB Subnet One"]
   elasticache_subnet_names = ["Elasticache Subnet One", "Elasticache Subnet Two"]
@@ -69,5 +80,7 @@ module "vpc" {
   create_flow_log_cloudwatch_iam_role   = true
   flow_log_max_aggregation_interval     = 60
 
-  tags = local.tags
+  tags = merge(local.tags, {
+    Analytics = "enabled"
+  })
 }
