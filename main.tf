@@ -2,14 +2,14 @@ provider "aws" {
   region = local.region
 }
 
-data "aws_availability_zones" "available" {}
-
 locals {
   name   = "ex-${basename(path.cwd)}"
   region = "eu-west-1"
 
   vpc_cidr = "10.0.0.0/16"
-  azs      = slice(data.aws_availability_zones.available.names, 0, 3)
+
+  # Static AZs for demo (no AWS lookup needed)
+  azs = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
 
   tags = {
     Example    = local.name
@@ -31,8 +31,10 @@ module "vpc" {
 
   azs = local.azs
 
-  private_subnets = concat([for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k)], ["10.0.100.0/24"])
-
+  private_subnets = concat(
+    [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k)],
+    ["10.0.100.0/24"]
+  )
 
   public_subnets      = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 4)]
   database_subnets    = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 8)]
